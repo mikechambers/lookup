@@ -81,16 +81,16 @@ def parse_bungie_id_from_screenshot(path:str):
             {
                 "role": "system",
                 "content": (
-                    "You are an assistant that analyzes images. "
+                    "You are an assistant that analyzes screenshots from Destiny 2 that shows player information to identify the bungie id displayed in the form of NAME#CODE (for example mesh#3230)"
                     "You must always return JSON strictly matching this schema: "
-                    "description: a short text describing what's in the image, "
+                    "id_str: The bungie id string found in the screenshot."
                     "confidence: a floating-point score between 0 and 1."
                 ),
             },
             {
                 "role": "user",
                 "content": [
-                    {"type": "text", "text": "What is in this image?"},
+                    {"type": "text", "text": "Find the bungie id in the for of NAME#CODE (i.e. mesh#3230) in this image."},
                     {
                         "type": "image_url",
                         "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"},

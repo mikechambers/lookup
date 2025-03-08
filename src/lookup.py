@@ -13,6 +13,7 @@ import webbrowser
 
 VERSION = "0.85.1"
 API_KEY_ENV_NAME = "DESTINY_API_KEY"
+OPENAI_API_KEY_ENV_NAME = "OPENAI_API_KEY"
 
 verbose = False
 
@@ -70,6 +71,8 @@ def _parse_bungie_id(value: str) -> BungieId:
     return bungie_id
 
 def parse_bungie_id_from_screenshot(path:str):
+    global verbose
+
     base64_image = encode_image(path)
 
     response = client.beta.chat.completions.parse(
@@ -109,29 +112,48 @@ def parse_bungie_id_from_screenshot(path:str):
 
     id_str = structured_dict.description
 
-    bungie_id = _parse_bungie_id(id_str)
+    return id_str
 
-    return bungie_id
 
 def on_created(event):
+    global verbose
     if not event.is_directory:
         # Check if file matches one of our allowed extensions
         lower_path = event.src_path.lower()
         if any(lower_path.endswith(ext) for ext in allowed_extensions):
-            print(f"New image detected: {event.src_path}")
+            
+            if verbose:
+                print(f"New image detected: {event.src_path}")
 
-            bungie_id = parse_bungie_id_from_screenshot(event.src_path)
+            try:
+                id_str = parse_bungie_id_from_screenshot(event.src_path)
+            except Exception as e:
+                print(f"Error calling open ai AIP")
+                return
+
+            if verbose:
+                print(f"Found bungie id from screenshot : {id_str}")
+
+            try:
+                bungie_id = _parse_bungie_id(id_str)
+            except Exception as e:
+                print(f"Error parsing bungie_id : {id_str}")
+                return
 
             if not bungie_id.is_valid:
                 print(f"Could not parse Bungie Id : {bungie_id}. Ignoring")
                 return
 
-            member = retrieve_member(bungie_id)
+            try:
+                member = retrieve_member(bungie_id)
+            except Exception as e:
+                print("Error retrieving member from Destiny API")
+                import traceback
+                traceback.print_exc()
+                return
 
             launch_trials_report(member)
             
-
-
 def _get_arg_from_env_or_error(env_var, arg_value, arg_name):
     """Return argument value, fallback to environment variable, else throw an error."""
     if arg_value is not None:
@@ -139,12 +161,12 @@ def _get_arg_from_env_or_error(env_var, arg_value, arg_name):
     elif env_var in os.environ:
         return os.environ[env_var]
     else:
-        print(f"Error: {arg_name} is required either as an argument or in environment variable {env_var}.", file=sys.stderr)
+        print(f"Error: {arg_name} is required to be set as an environment variable {env_var}.", file=sys.stderr)
         sys.exit(1)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description="Automate Destiny 2 Video clip capture with NVIDIA ShadowPlay"
+        description="Parse bungie ids from screenshots and lookup on destinytrialsreport.com"
     )
 
     parser.add_argument(
@@ -160,14 +182,13 @@ if __name__ == "__main__":
         help='display additional information as script runs'
     )
 
-    parser.add_argument(
-        "--api-key",
-        type=str,
-        help=f"API Key for authentication. Must be set via argument, or environment variables [{API_KEY_ENV_NAME}]")
-
     args = parser.parse_args()
 
-    api_key = _get_arg_from_env_or_error(API_KEY_ENV_NAME, args.api_key, "--api-key")
+    #check destiny api key is set as an environment variable
+    api_key = _get_arg_from_env_or_error(API_KEY_ENV_NAME)
+
+    #check openai key is set as an environment variable
+    _get_arg_from_env_or_error(OPENAI_API_KEY_ENV_NAME)
 
     verbose = args.verbose
 

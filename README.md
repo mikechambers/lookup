@@ -1,6 +1,6 @@
 # lookup
 
-echo is a Python3 script that looks for Destiny 2 screenshots to be created and then uses the Open AI API to parse the bungie id from the screenshot and launch [Trials Report](https://www.destinytrialsreport.com) with the parsed player's info.
+lookup is a Python3 script that looks for Destiny 2 screenshots to be created and then uses the Open AI API to parse the bungie id from the screenshot and launch [Trials Report](https://www.destinytrialsreport.com) with the parsed player's info.
 
 This automates player lookup in game. Simple click on the player name, take a screenshot, and Trials Report will be launched with that player's info.
 

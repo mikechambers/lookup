@@ -1,3 +1,4 @@
 watchdog
 openai
 python-dateutil
+playsound

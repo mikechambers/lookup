@@ -10,12 +10,15 @@ from openai import OpenAI
 from modules.destiny import Destiny
 from modules.member import BungieId, Member
 import webbrowser
+from playsound import playsound
 
 VERSION = "0.85.1"
 API_KEY_ENV_NAME = "DESTINY_API_KEY"
 OPENAI_API_KEY_ENV_NAME = "OPENAI_API_KEY"
+LAUNCH_WAV = "launched.wav"
 
 verbose = False
+play_sound_on_launch = True
 
 folder_to_watch = "/Users/mesh/tmp/lookup"
 allowed_extensions = ["png", "jpg"]
@@ -43,6 +46,9 @@ def main():
         observer.stop()
     observer.join()
 
+def play_sound(file_path: str):
+    playsound(file_path)
+
 def encode_image(image_path:str):
     with open(image_path, "rb") as image_file:
         return base64.b64encode(image_file.read()).decode("utf-8")
@@ -57,6 +63,11 @@ def retrieve_member(bungie_id:BungieId):
     return member
 
 def launch_trials_report(member:Member):
+    global play_sound_on_launch
+
+    if play_sound_on_launch:
+        playsound(LAUNCH_WAV)
+
     url = f"https://destinytrialsreport.com/report/{member.platform_id}/{member.membership_id}"
     webbrowser.open(url)
 

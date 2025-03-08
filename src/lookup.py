@@ -11,6 +11,9 @@ from modules.destiny import Destiny
 from modules.member import BungieId, Member
 import webbrowser
 from playsound import playsound
+import traceback
+import tempfile
+from PIL import Image
 
 VERSION = "0.85.1"
 API_KEY_ENV_NAME = "DESTINY_API_KEY"
@@ -20,24 +23,26 @@ LAUNCH_WAV = "launched.wav"
 verbose = False
 play_sound_on_launch = True
 
-folder_to_watch = "/Users/mesh/tmp/lookup"
+screenshot_dir = None
 allowed_extensions = ["png", "jpg"]
+
+optimize_screenshot = True
 
 client = OpenAI()
 
 # 1) Define a Pydantic model describing the JSON structure you need from the model.
 class ImageAnalysis(BaseModel):
-    description: str
+    id_str: str
     confidence: float
 
 def main():
     event_handler = FileSystemEventHandler()
     event_handler.on_created = on_created
     observer = Observer()
-    observer.schedule(event_handler, folder_to_watch, recursive=False)
+    observer.schedule(event_handler, screenshot_dir, recursive=False)
     observer.start()
 
-    print(f"Watching folder '{folder_to_watch}' for {allowed_extensions} ...")
+    print(f"Watching folder '{screenshot_dir}' for {allowed_extensions} ...")
 
     try:
         while True:
@@ -92,7 +97,7 @@ def parse_bungie_id_from_screenshot(path:str):
             {
                 "role": "system",
                 "content": (
-                    "You are an assistant that analyzes screenshots from Destiny 2 that shows player information to identify the bungie id displayed in the form of NAME#CODE (for example mesh#3230)"
+                    "You are an assistant that analyzes screenshots from Destiny 2 that shows player information to identify the bungie id displayed in the form of NAME#CODE (for example FOO#1234)"
                     "You must always return JSON strictly matching this schema: "
                     "id_str: The bungie id string found in the screenshot."
                     "confidence: a floating-point score between 0 and 1."
@@ -101,7 +106,7 @@ def parse_bungie_id_from_screenshot(path:str):
             {
                 "role": "user",
                 "content": [
-                    {"type": "text", "text": "Find the bungie id in the for of NAME#CODE (i.e. mesh#3230) in this image."},
+                    {"type": "text", "text": "Find the bungie id in the for of NAME#CODE (i.e. FOO#1234) in this image."},
                     {
                         "type": "image_url",
                         "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"},
@@ -115,15 +120,45 @@ def parse_bungie_id_from_screenshot(path:str):
 
     # 3) Retrieve the structured object from the model
     parsed_result = response.choices[0].message.parsed
-    structured_dict = parsed_result.dict()
+    structured_dict = parsed_result.model_dump()
 
     # Example: print out as a JSON-like string
     print("Structured response:")
     print(structured_dict)
 
-    id_str = structured_dict.description
+    id_str = structured_dict["id_str"]
 
     return id_str
+
+
+def convert_png_to_jpg(png_path: str) -> str:
+    """
+    Converts a PNG image to a JPG, saves it in a temporary directory, and returns the new file path.
+
+    Args:
+        png_path (str): The path to the original PNG file.
+
+    Returns:
+        str: The path to the converted JPG file.
+    """
+    # Ensure the file exists
+    if not os.path.isfile(png_path):
+        raise FileNotFoundError(f"File not found: {png_path}")
+
+    # Open the PNG image
+    with Image.open(png_path) as img:
+        # Convert image to RGB (to remove transparency, if any)
+        img = img.convert("RGB")
+
+        # Create a temporary file for the JPG
+        temp_dir = tempfile.gettempdir()  # Get system temp directory
+        jpg_filename = os.path.splitext(os.path.basename(png_path))[0] + ".jpg"
+        jpg_path = os.path.join(temp_dir, jpg_filename)
+
+        # Save as JPG
+        img.save(jpg_path, "JPEG", quality=75)
+
+    return jpg_path  # Return the path to the new JPG
 
 
 def on_created(event):
@@ -137,9 +172,30 @@ def on_created(event):
                 print(f"New image detected: {event.src_path}")
 
             try:
-                id_str = parse_bungie_id_from_screenshot(event.src_path)
+                import time
+                time.sleep(1.0)
+
+                screenshot_path = event.src_path
+
+                if optimize_screenshot:
+                    screenshot_path = convert_png_to_jpg(event.src_path)
+                    if verbose:
+                        print(f"Using jpg : {screenshot_path}")
+
+                id_str = parse_bungie_id_from_screenshot(screenshot_path)
+
+                if optimize_screenshot and os.path.exists(screenshot_path):
+                    os.remove(screenshot_path)
+                    if verbose:
+                        print(f"Temporary file deleted: {screenshot_path}")
+
+
             except Exception as e:
-                print(f"Error calling open ai AIP")
+                print(f"Error calling open ai API")
+
+                if verbose:
+                    traceback.print_exc()
+
                 return
 
             if verbose:
@@ -159,20 +215,23 @@ def on_created(event):
                 member = retrieve_member(bungie_id)
             except Exception as e:
                 print("Error retrieving member from Destiny API")
-                import traceback
-                traceback.print_exc()
+                
+                if verbose:
+                    traceback.print_exc()
                 return
+
+            if not member:
+                print(f"Could not find member for {bungie_id}. This is probably because the bungie id was read incorrectly from the screenshot.")
+                return
+
 
             launch_trials_report(member)
             
-def _get_arg_from_env_or_error(env_var, arg_value, arg_name):
-    """Return argument value, fallback to environment variable, else throw an error."""
-    if arg_value is not None:
-        return arg_value
-    elif env_var in os.environ:
+def _get_arg_from_env_or_error(env_var):
+    if env_var in os.environ:
         return os.environ[env_var]
     else:
-        print(f"Error: {arg_name} is required to be set as an environment variable {env_var}.", file=sys.stderr)
+        print(f"Error: {env_var} is required to be set as an environment variable {env_var}.", file=sys.stderr)
         sys.exit(1)
 
 if __name__ == "__main__":
@@ -193,6 +252,19 @@ if __name__ == "__main__":
         help='display additional information as script runs'
     )
 
+    parser.add_argument(
+        "--screenshot-dir",
+        type=str,
+        required=True,
+        help="Path to the directory where screenshots are stored"
+    )
+
+    parser.add_argument(
+        "--optimize-image",
+        action="store_false",
+        help="Disable image optimization (default: enabled)."
+    )
+
     args = parser.parse_args()
 
     #check destiny api key is set as an environment variable
@@ -201,12 +273,18 @@ if __name__ == "__main__":
     #check openai key is set as an environment variable
     _get_arg_from_env_or_error(OPENAI_API_KEY_ENV_NAME)
 
+    screenshot_dir = args.screenshot_dir
+
+    if not os.path.isdir(args.screenshot_dir):
+        print(f"Error: {screenshot_dir} is not a valid directory.")
+        sys.exit(1)
+
     verbose = args.verbose
+    optimize_screenshot = args.optimize_image
 
     try:
         main()
     except Exception as e:
         print(f"An error occurred. Aborting : {e}")
-        import traceback
         traceback.print_exc()
         sys.exit(1)

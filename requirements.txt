@@ -3,3 +3,6 @@ watchdog
 openai
 python-dateutil
 playsound==1.2.2
+Pillow
+opencv-python
+pytesseract

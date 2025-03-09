@@ -36,6 +36,10 @@ from playsound import playsound
 import traceback
 import tempfile
 from PIL import Image
+from enum import Enum
+import cv2
+import pytesseract
+import re
 
 VERSION = "0.85.1"
 API_KEY_ENV_NAME = "DESTINY_API_KEY"
@@ -50,7 +54,11 @@ allowed_extensions = ["png", "jpg"]
 
 optimize_screenshot = True
 
-client = OpenAI()
+class Engine(Enum):
+    OPENCV = 1
+    OPENAI = 2
+
+engine = Engine.OPENCV
 
 class ImageAnalysis(BaseModel):
     id_str: str
@@ -107,10 +115,50 @@ def _parse_bungie_id(value: str) -> BungieId:
         )
     return bungie_id
 
+
 def parse_bungie_id_from_screenshot(path:str) -> str:
+    if engine == Engine.OPENAI:
+        return _open_ai_parse(path)
+    elif engine == Engine.OPENCV:
+        return _open_cv_parse(path)
+    
+
+def _open_cv_parse(path: str) -> str:
+    """
+    Loads an image at `path`, extracts text via OCR, and returns 
+    the first Bungie ID of the form [A-Za-z0-9]+#[0-9]{4}.
+    
+    Returns:
+        str: The first matching Bungie ID found, or an empty string if none.
+    """
+    # Load the image
+    image = cv2.imread(path)
+    if image is None:
+        print(f"Error: Could not load image from path {path}")
+        return ""
+
+    # Convert the image to grayscale (often improves OCR accuracy)
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+
+    # Perform OCR using pytesseract
+    text = pytesseract.image_to_string(gray)
+
+    # Regex to find the first occurrence of a Bungie ID (e.g. "mesh#1234")
+    pattern = r'[A-Za-z0-9]+#[0-9]{4}'
+    match = re.search(pattern, text)
+    
+    if match:
+        return match.group(0)
+    else:
+        return ""
+
+
+def _open_ai_parse(path:str) -> str:
     global verbose
 
     base64_image = encode_image(path)
+
+    client = OpenAI()
 
     response = client.beta.chat.completions.parse(
         model="gpt-4o-mini",
@@ -280,19 +328,33 @@ if __name__ == "__main__":
         help="Path to the directory where screenshots are stored"
     )
 
+    """"
     parser.add_argument(
         "--optimize-image",
         action="store_false",
         help="Disable image optimization (default: enabled)."
     )
+    """
+
+    valid_choices = [e.name for e in Engine]  # e.g. ["OPENCV", "OPENAI"]
+    parser.add_argument(
+        "--engine",
+        type=str.upper,             # Convert user input to uppercase
+        choices=valid_choices,      # Must match these after .upper()
+        default=Engine.OPENCV.name, # Default is "OPENCV"
+        help="Specify which engine to use (case-insensitive). Choices: OPENCV, OPENAI."
+    )
 
     args = parser.parse_args()
+
+    engine = Engine[args.engine]
 
     #check destiny api key is set as an environment variable
     api_key = _get_arg_from_env_or_error(API_KEY_ENV_NAME)
 
-    #check openai key is set as an environment variable
-    _get_arg_from_env_or_error(OPENAI_API_KEY_ENV_NAME)
+    if engine == Engine.OPENAI:
+        #check openai key is set as an environment variable
+        _get_arg_from_env_or_error(OPENAI_API_KEY_ENV_NAME)
 
     screenshot_dir = args.screenshot_dir
 
@@ -301,7 +363,9 @@ if __name__ == "__main__":
         sys.exit(1)
 
     verbose = args.verbose
-    optimize_screenshot = args.optimize_image
+    #optimize_screenshot = args.optimize_image
+    #optimize_screenshot = engine == Engine.OPENAI
+    optimize_screenshot = True
 
     try:
         main()

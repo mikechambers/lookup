@@ -52,7 +52,6 @@ optimize_screenshot = True
 
 client = OpenAI()
 
-# 1) Define a Pydantic model describing the JSON structure you need from the model.
 class ImageAnalysis(BaseModel):
     id_str: str
     confidence: float
@@ -80,7 +79,7 @@ def encode_image(image_path:str):
     with open(image_path, "rb") as image_file:
         return base64.b64encode(image_file.read()).decode("utf-8")
 
-def retrieve_member(bungie_id:BungieId):
+def retrieve_member(bungie_id:BungieId) -> Member:
     global verbose, api_key
     destiny = Destiny(api_key, verbose)
 
@@ -108,7 +107,7 @@ def _parse_bungie_id(value: str) -> BungieId:
         )
     return bungie_id
 
-def parse_bungie_id_from_screenshot(path:str):
+def parse_bungie_id_from_screenshot(path:str) -> str:
     global verbose
 
     base64_image = encode_image(path)

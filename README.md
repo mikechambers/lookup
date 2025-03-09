@@ -6,7 +6,7 @@ Simply click on the player name in game, take a screenshot, and Trials Report wi
 
 If you run into any issues, have any ideas, or just want to chat, please post in [issues](https://github.com/mikechambers/lookup/issues) or share on [Discord](https://discord.gg/2Y8bV2Mq3p).
 
-The script gives the choice of two image parsing engines, [Open CV](https://opencv.org/) (default) and the [Open AI API](https://platform.openai.com/).
+The script gives the choice of two image parsing engines, [Open CV](https://opencv.org/) (default) and the [Open AI API](https://platform.openai.com/). In general, Open CV is faster, a doesn't require paid access to an API, while Open AI is more accurate and can handle special characters better.
 
 ## Requirements
 

@@ -91,7 +91,6 @@ def retrieve_member(bungie_id:BungieId) -> Member:
     global verbose, api_key
     destiny = Destiny(api_key, verbose)
 
-    #bungie_id = _parse_bungie_id(bungie_id)
     member = destiny.retrieve_member(bungie_id)
 
     return member
@@ -107,12 +106,7 @@ def launch_trials_report(member:Member):
 
 
 def _parse_bungie_id(value: str) -> BungieId:
-    """Parses and validates the Bungie ID, returning a BungieId object"""
     bungie_id = BungieId.from_string(value)
-    if not bungie_id.is_valid:
-        raise argparse.ArgumentTypeError(
-            "Invalid Bungie ID format. Expected format: NAME#1234 (e.g., Guardian#1234)"
-        )
     return bungie_id
 
 
@@ -270,11 +264,7 @@ def on_created(event):
             if verbose:
                 print(f"Found bungie id from screenshot : {id_str}")
 
-            try:
-                bungie_id = _parse_bungie_id(id_str)
-            except Exception as e:
-                print(f"Error parsing bungie_id : {id_str}")
-                return
+            bungie_id = _parse_bungie_id(id_str)
 
             if not bungie_id.is_valid:
                 print(f"Could not parse Bungie Id : {bungie_id}. Ignoring")

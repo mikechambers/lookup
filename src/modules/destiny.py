@@ -117,8 +117,8 @@ class Destiny:
 
         return self._headers
 
-    def retrieve_current_activity_modes(self):
-        profile = self.retrieve_profile()
+    def retrieve_current_activity_modes(self, member:Member):
+        profile = self.retrieve_profile(member)
 
         character = self.find_most_recent_character(profile)
 
@@ -147,10 +147,10 @@ class Destiny:
         return mostRecentCharacter
 
 
-    def retrieve_profile(self):
+    def retrieve_profile(self, member:Member):
 
         rnd = random.randint(10000, 10000000)
-        url = f"https://www.bungie.net/Platform/Destiny2/1/Profile/4611686018429783292/?components=200,204,1000&rnd={rnd}"
+        url = f"https://www.bungie.net/Platform/Destiny2/{member.platform_id}/Profile/{member.membership_id}/?components=200,204,1000&rnd={rnd}"
 
         if self.verbose:
             print(f"retrieve_profile : {url}")

@@ -97,7 +97,7 @@ class Destiny:
         return Member(out["membershipId"], out["membershipType"])
 
     def retrieve_linked_profiles(self, membership_id:str, platform_id:int) -> dict:
-        url = f"https://www.bungie.net/Platform/Destiny2/{platformId}/Profile/{membership_id}/LinkedProfiles"
+        url = f"https://www.bungie.net/Platform/Destiny2/{platform_id}/Profile/{membership_id}/LinkedProfiles"
 
         response = self.retrieve_json_get(url)
 

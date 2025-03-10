@@ -53,12 +53,15 @@ screenshot_dir = None
 allowed_extensions = ["png", "jpg"]
 
 optimize_screenshot = True
+fallback = False
+
 
 class Engine(Enum):
     OPENCV = 1
     OPENAI = 2
 
 engine = Engine.OPENCV
+
 
 class ImageAnalysis(BaseModel):
     id_str: str
@@ -318,6 +321,12 @@ if __name__ == "__main__":
         help="Path to the directory where screenshots are stored"
     )
 
+    parser.add_argument(
+        "--fallback",
+        action="store_true",
+        help="Enable fallback mode (default: disabled)."
+    )
+
     """"
     parser.add_argument(
         "--optimize-image",
@@ -356,6 +365,8 @@ if __name__ == "__main__":
     #optimize_screenshot = args.optimize_image
     #optimize_screenshot = engine == Engine.OPENAI
     optimize_screenshot = True
+
+    fallback = args.fallback
 
     try:
         main()

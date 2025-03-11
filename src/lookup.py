@@ -113,7 +113,7 @@ def _parse_bungie_id(value: str) -> BungieId:
     return bungie_id
 
 
-def parse_bungie_id_from_screenshot(path:str) -> str:
+def parse_bungie_id_from_screenshot(path:str, engine:Engine) -> str:
     if engine == Engine.OPENAI:
         return _open_ai_parse(path)
     elif engine == Engine.OPENCV:
@@ -227,67 +227,84 @@ def convert_png_to_jpg(png_path: str) -> str:
     return jpg_path  # Return the path to the new JPG
 
 
+def parse_and_retrieve_member(path:str, engine:Engine) -> Member:
+    try:
+        id_str = parse_bungie_id_from_screenshot(path, engine)
+    except Exception as e:
+        print(f"Error extracting bungie id from screenshot")
+
+        if verbose:
+            traceback.print_exc()
+
+        return
+
+    if verbose:
+        print(f"Found bungie id from screenshot : {id_str}")
+
+    bungie_id = _parse_bungie_id(id_str)
+
+    if not bungie_id.is_valid:
+        print(f"Could not parse Bungie Id : {bungie_id}. Ignoring")
+        return
+
+    try:
+        member = retrieve_member(bungie_id)
+    except Exception as e:
+        print("Error retrieving member from Destiny API")
+        
+        if verbose:
+            traceback.print_exc()
+        return
+    
+    if not member:
+        print(f"Could not find member for {bungie_id} using {engine}. This is probably because the bungie id was read incorrectly from the screenshot.")
+        return
+    
+    return member
+
+
 def on_created(event):
     global verbose
     if not event.is_directory:
         # Check if file matches one of our allowed extensions
         lower_path = event.src_path.lower()
-        if any(lower_path.endswith(ext) for ext in allowed_extensions):
-            
+        if not any(lower_path.endswith(ext) for ext in allowed_extensions):
+            return
+        
+        if verbose:
+            print(f"New image detected: {event.src_path}")
+
+        time.sleep(1.0)
+
+        screenshot_path = event.src_path
+
+        if optimize_screenshot:
+            screenshot_path = convert_png_to_jpg(event.src_path)
             if verbose:
-                print(f"New image detected: {event.src_path}")
+                print(f"Using jpg : {screenshot_path}")
 
-            try:
-                import time
-                time.sleep(1.0)
+        member = parse_and_retrieve_member(screenshot_path, engine)
 
-                screenshot_path = event.src_path
+        if not member and fallback:
+            e = None
+            if engine == Engine.OPENAI:
+                e = Engine.OPENCV
+            else:
+                e = Engine.OPENAI
 
-                if optimize_screenshot:
-                    screenshot_path = convert_png_to_jpg(event.src_path)
-                    if verbose:
-                        print(f"Using jpg : {screenshot_path}")
+            member = parse_and_retrieve_member(screenshot_path, e)
 
-                id_str = parse_bungie_id_from_screenshot(screenshot_path)
-
-                if optimize_screenshot and os.path.exists(screenshot_path):
-                    os.remove(screenshot_path)
-                    if verbose:
-                        print(f"Temporary file deleted: {screenshot_path}")
-
-
-            except Exception as e:
-                print(f"Error calling open ai API")
-
-                if verbose:
-                    traceback.print_exc()
-
-                return
-
+        if optimize_screenshot and os.path.exists(screenshot_path):
+            os.remove(screenshot_path)
             if verbose:
-                print(f"Found bungie id from screenshot : {id_str}")
-
-            bungie_id = _parse_bungie_id(id_str)
-
-            if not bungie_id.is_valid:
-                print(f"Could not parse Bungie Id : {bungie_id}. Ignoring")
-                return
-
-            try:
-                member = retrieve_member(bungie_id)
-            except Exception as e:
-                print("Error retrieving member from Destiny API")
-                
-                if verbose:
-                    traceback.print_exc()
-                return
-
-            if not member:
-                print(f"Could not find member for {bungie_id}. This is probably because the bungie id was read incorrectly from the screenshot.")
-                return
+                print(f"Temporary file deleted: {screenshot_path}")
 
 
-            launch_trials_report(member)
+        if not member:
+            return
+
+
+        launch_trials_report(member)
             
 def _get_arg_from_env_or_error(env_var):
     if env_var in os.environ:

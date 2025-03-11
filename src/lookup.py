@@ -41,6 +41,10 @@ import cv2
 import pytesseract
 import re
 
+##todo
+# dont convert to jpg if file is jpg
+
+
 VERSION = "0.85.1"
 API_KEY_ENV_NAME = "DESTINY_API_KEY"
 OPENAI_API_KEY_ENV_NAME = "OPENAI_API_KEY"
@@ -54,6 +58,7 @@ allowed_extensions = ["png", "jpg"]
 
 optimize_screenshot = True
 fallback = False
+api_key = None
 
 
 class Engine(Enum):
@@ -83,26 +88,28 @@ def main():
         observer.stop()
     observer.join()
 
-def play_sound(file_path: str):
-    playsound(file_path)
-
 def encode_image(image_path:str):
     with open(image_path, "rb") as image_file:
         return base64.b64encode(image_file.read()).decode("utf-8")
 
 def retrieve_member(bungie_id:BungieId) -> Member:
-    global verbose, api_key
     destiny = Destiny(api_key, verbose)
 
     member = destiny.retrieve_member(bungie_id)
 
     return member
 
+
+def play_sound(file_path: str):
+    try:
+        playsound(file_path)
+    except Exception as e:
+        print(f"Warning: Failed to play sound {file_path}. Error: {e}. Ignoring")
+
 def launch_trials_report(member:Member):
-    global play_sound_on_launch
 
     if play_sound_on_launch:
-        playsound(LAUNCH_WAV)
+        play_sound(LAUNCH_WAV)
 
     url = f"https://destinytrialsreport.com/report/{member.platform_id}/{member.membership_id}"
     webbrowser.open(url)
@@ -151,7 +158,6 @@ def _open_cv_parse(path: str) -> str:
 
 
 def _open_ai_parse(path:str) -> str:
-    global verbose
 
     base64_image = encode_image(path)
 
@@ -264,7 +270,6 @@ def parse_and_retrieve_member(path:str, engine:Engine) -> Member:
 
 
 def on_created(event):
-    global verbose
     if not event.is_directory:
         # Check if file matches one of our allowed extensions
         lower_path = event.src_path.lower()
@@ -286,11 +291,16 @@ def on_created(event):
         member = parse_and_retrieve_member(screenshot_path, engine)
 
         if not member and fallback:
+
+
             e = None
             if engine == Engine.OPENAI:
                 e = Engine.OPENCV
             else:
                 e = Engine.OPENAI
+
+            if verbose:
+                print(f"Primary engine ({engine}) failed. Falling back to secondary engine ({e}).")
 
             member = parse_and_retrieve_member(screenshot_path, e)
 
@@ -310,7 +320,7 @@ def _get_arg_from_env_or_error(env_var):
     if env_var in os.environ:
         return os.environ[env_var]
     else:
-        print(f"Error: {env_var} is required to be set as an environment variable {env_var}.", file=sys.stderr)
+        print(f"Error: {env_var} is required to be set as an environment variable.", file=sys.stderr)
         sys.exit(1)
 
 if __name__ == "__main__":
@@ -363,12 +373,13 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
+    fallback = args.fallback
     engine = Engine[args.engine]
 
     #check destiny api key is set as an environment variable
     api_key = _get_arg_from_env_or_error(API_KEY_ENV_NAME)
 
-    if engine == Engine.OPENAI:
+    if engine == Engine.OPENAI or fallback:
         #check openai key is set as an environment variable
         _get_arg_from_env_or_error(OPENAI_API_KEY_ENV_NAME)
 
@@ -383,7 +394,7 @@ if __name__ == "__main__":
     #optimize_screenshot = engine == Engine.OPENAI
     optimize_screenshot = True
 
-    fallback = args.fallback
+    
 
     try:
         main()

@@ -52,6 +52,12 @@ By default, the OPEN CV engine will be used. If you would like to use the OPEN A
 $python lookup.py --screenshot-dir "C:/Users/USERACCOUNT/Documents/Destiny 2/Screenshots/" --engine openai
 ```
 
+You can also specify the **--fallback** flag. Ff the first engine doesn't work, it will try the other engine. In general, its recommended to use OPEN CV engine with **--fallback** to OPEN AI. OPEN CV will parse most names, and do it quickly, and then Open AI can handle any more complicated names.
+
+```
+$python lookup.py --screenshot-dir "C:/Users/USERACCOUNT/Documents/Destiny 2/Screenshots/" --fallback
+```
+
 ## Known Issues
 
 You may get a "Error retrieving member from Destiny API" message. This can happen if the bungie id is not extracted correctly from the screenshot (sometimes characters may be missing).

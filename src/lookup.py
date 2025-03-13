@@ -135,6 +135,7 @@ def _open_cv_parse(path: str) -> str:
     Returns:
         str: The first matching Bungie ID found, or an empty string if none.
     """
+
     # Load the image
     image = cv2.imread(path)
     if image is None:
@@ -147,14 +148,35 @@ def _open_cv_parse(path: str) -> str:
     # Perform OCR using pytesseract
     text = pytesseract.image_to_string(gray)
 
+    print(text)
+
     # Regex to find the first occurrence of a Bungie ID (e.g. "mesh#1234")
-    pattern = r'[A-Za-z0-9]+#[0-9]{4}'
+
+    #when parsing open CV will return name like this: "® Rakish Elias#9783"
+    #where the "®" is actually a shield graphic from the game. This ignores that,
+    #then looks for a bungie id (which can contain spaces)
+    #pattern = r'[A-Za-z0-9][A-Za-z0-9 ]*#[0-9]{4}'
+
+    """
+    pattern = r"[A-Za-z0-9][A-Za-z0-9 '’\-]*#[0-9]{4}"
     match = re.search(pattern, text)
     
     if match:
         return match.group(0)
     else:
         return ""
+    """
+
+    #This relies on the behaviour where Open CV interprets the bungie shield
+    #icon as "® ", so we just look for that line remove those chars and match everything else.
+    lines = text.split("\n")
+    for line in lines:
+        if line.startswith("® "):
+            # Remove the "® " prefix
+            cleaned_name = line[2:].strip()
+            return cleaned_name  # Directly return the extracted name
+    
+    return ""
 
 
 def _open_ai_parse(path:str) -> str:

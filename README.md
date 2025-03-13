@@ -10,7 +10,7 @@ If you run into any issues, have any ideas, or just want to chat, please post in
 
 The script gives the choice of two image parsing engines, [Open CV](https://opencv.org/) (default) and the [Open AI API](https://platform.openai.com/).
 
-In general, Open CV is faster, and doesn't require paid access to an API but can have issues with Bungie Ids with special / unicode characters and sometimes spaces.
+In general, Open CV is faster, and doesn't require paid access to an API but can have issues with Bungie Ids with special / unicode characters. (Note, recent updates should make this much more robust).
 
 Open AI is more accurate and can handle special characters better, but requires access to the Open AI API (which is paid).
 

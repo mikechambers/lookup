@@ -148,7 +148,7 @@ def _open_cv_parse(path: str) -> str:
     # Perform OCR using pytesseract
     text = pytesseract.image_to_string(gray)
 
-    print(text)
+    #print(text)
 
     # Regex to find the first occurrence of a Bungie ID (e.g. "mesh#1234")
 
@@ -174,8 +174,11 @@ def _open_cv_parse(path: str) -> str:
         if line.startswith("® "):
             # Remove the "® " prefix
             cleaned_name = line[2:].strip()
-            return cleaned_name  # Directly return the extracted name
-    
+
+            pattern = r"^.+#\d{4}$"
+            if re.match(pattern, cleaned_name):
+                return cleaned_name
+            
     return ""
 
 
